@@ -1,0 +1,265 @@
+---
+title: "Titanic Data Analysis"
+output: 
+  flexdashboard::flex_dashboard:
+    storyboard: true
+    fontsize: 16pt
+    theme: bootstrap
+---
+
+```{r setup, include=FALSE, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+
+## Please incomment as necessary 
+
+#install.packages("titanic")
+#if (!(require(titanic))) install.packages ("titanic")
+#if (!(require(ggthemes))) install.packages ("ggthemes")
+#install.packages("ggthemes")
+#install.packages("dummies")
+library(titanic)
+library(flexdashboard)
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(dummies)
+library(ggthemes)
+
+
+
+your_starting_data <- bind_rows(as_tibble(titanic::titanic_train), as_tibble(titanic::titanic_test))
+
+```
+
+### Introduction to the Titanic Dataset
+```{r, warning = FALSE, message = FALSE}
+## Start by visualizing the dataset
+data.frame = select(your_starting_data , Name, Survived, Pclass, Age, Sex, SibSp, Parch, Cabin, Embarked)
+data.frame <- separate(data.frame, Name, into = c("Last", "Title", "First", 'Middle'), sep = '\\s')
+data.frame
+```
+
+***
+
+- In this analysis, We will seek to investigate the following questions:
+
+  - Who lived and who died, demographically?
+  - Was gender a factor?
+  - Was class of service a factor?
+  - What other patterns can be seen in the data?
+  - Is there something surprising in the data?
+  - Was a single woman more likely to survive?
+
+### Distribution of Age
+```{r, warning = FALSE, message = FALSE}
+
+## Create a quick histogram to start off the analysis
+ggplot(data.frame, aes(x=Age)) + 
+  geom_histogram(color = '#95a7e0', bins = 8, fill = '#95a7e0') + labs(y = 'Age', title = "Distribution of Age", x =   NULL) + 
+  theme_minimal()
+
+```
+
+***
+
+- A quick look at the data tell us several things:
+
+  - When identifying the age distribution, most of the passengers were approximately 20-25 years old
+
+### Gender and Survival
+```{r, warning = FALSE, message = FALSE}
+
+## Create a stacked bar chart to analyze survival by sex
+data.frame %>%
+  filter(!is.na(Survived)) %>%
+  ggplot(aes(x = factor(Survived), fill = Sex)) + 
+  theme_minimal() + 
+  geom_bar() + 
+  labs(y = "Passenger Count", title = "Titanic Survival by Sex", x =   NULL) + 
+  scale_fill_manual(values = c('#c8a6c7','#95a7e0')) +
+  geom_text(aes(label=..count..), stat = 'count', position = position_stack(vjust= 0.5),
+            colour = "white", size = 5) + 
+  scale_x_discrete(labels = c('Died', 'Survived'))
+```
+
+***
+
+- Investigating who survived by gender, it is clear that more *female passengers* made it off the boat
+
+- The men, on the other hand, had less of a chance to survive, perhaps putting the women and children on the lifeboat first
+
+### Class and Survival Pt. 1
+```{r, warning = FALSE, message = FALSE}
+
+## Create a simple pie chart to understand the pct of deaths by class
+dead <- c(80, 97, 372)
+class <- c("1st", "2nd", "3rd")
+piepercent<- round(100*dead/sum(dead), 1)
+lbls <- paste(class, piepercent, '%')
+
+pie(dead, col=c('#c88484', '#ca859c', '#c8a6c7'),
+    labels = lbls, 
+    main = "Proportion of Deaths by Class") 
+
+
+  #data.frame %>% group_by(Pclass) %>% count(Name) %>% summarise(sum(n))
+
+
+```
+
+***
+- Perhaps one of the sad facts of the Titanic disaster is that more people in the lower class died (out of those who died, *67.8%* were in the lower class as seen by the graph)
+
+- One [article](https://abc13.com/titanic-anniversary-immigration-world-history/1874040/) notes how lower class passengers were confined to the lower deck and were not able to make it up alive
+
+
+### Class and Survival Pt. 2 
+```{r, warning = FALSE, message = FALSE}
+
+## Next, expand the analysis of who survived and died based on class  
+ data.frame%>% 
+   filter(!is.na(Survived)) %>%
+   ggplot(aes(x=factor(Pclass),fill= factor(Survived)))+
+  geom_bar(position="dodge") +
+  facet_grid(". ~ Survived", labeller = as_labeller(c('0' = 'Died', '1' = 'Survived'))) + 
+  geom_text(aes(label = ..count..), stat = "count", vjust = 1.5, colour = "white") + 
+   labs(y = "Passenger Count", title = "Survival by Class", x =   NULL) + 
+  scale_fill_manual(values = c('#c88484', '#70a3a4'), name = "Survival", labels = c("Died", 'Survived')) +
+   theme_minimal()
+```
+
+***
+
+- Continuing with analysis of class and survival odds, there were more people in the third class to begin with but overall their odds of survival was disproportionate compared to the other classes
+
+- This [article](https://digitalcommons.wou.edu/cgi/viewcontent.cgi?article=1026&context=his) notes how people in the third class were traveling on the Titanic, seeking a new life in America. There position on the lower deck did make their escape off the boat more challenging. 
+
+
+### Distribution of Survivors Based on Number of Parents/ Children, Sex, and Class
+```{r, warning = FALSE, message = FALSE}
+
+## Plot the survival rate by several factors
+posn.j <- position_jitter(0.3, 0) 
+
+data.frame %>% 
+  filter(!is.na(Survived)) %>%
+  ggplot(aes(x=factor(Pclass),y=Parch,col=factor(Sex)))+
+  geom_jitter(size=3,alpha=0.5,position=posn.j)+
+  facet_grid(". ~ Survived", labeller = as_labeller(c('0' = 'Died', '1' = 'Survived'))) + theme_minimal()+ 
+  labs(y = "Number of Parents and Children", title = "Distribution of Number of  Parents and Children, Sex, and Class", x =   "Class", color = "Sex") +
+  scale_color_manual(values = c('female' ='#c8a6c7','male'= '#95a7e0'))
+
+
+```
+
+***
+
+- Again, one can note that more women survived the sinking of the Titanic
+
+- Looking at the number of parents or children that passengers may have had on board, the lower class appears to have a higher number of these family relations
+  
+  - This [article](https://abc13.com/titanic-anniversary-immigration-world-history/1874040/) recognized that one lower class family with six children did not survive the sinking
+
+- As the number of parents and children increase, the number of female passengers who died show through, likely because they were trying to protect their loved ones
+
+### Distribution of Survivors Based on Number of Siblings and Spouses, Sex, and Class
+```{r, warning = FALSE, message = FALSE}
+
+## Plot the survival rate by several factors
+posn.j <- position_jitter(0.3, 0) 
+
+
+data.frame %>% 
+  filter(!is.na(Survived)) %>%
+  ggplot(aes(x=factor(Pclass),y=SibSp,col=factor(Sex)))+
+  geom_jitter(size=3,alpha=0.5,position=posn.j)+
+  facet_grid(". ~ Survived", labeller = as_labeller(c('0' = 'Died', '1' = 'Survived'))) + theme_minimal()+ 
+  labs(y = "Number of Siblings and Spouses", title = "Distribution of Number of Siblings and Spouses, Sex, and Class", x =   "Class", color = "Sex") +
+  scale_color_manual(values = c('female' ='#c8a6c7','male'= '#95a7e0'))
+
+```
+
+
+***
+
+- Now, comparing the class, number of siblings and spouses, and survival rates, several notes can be made:
+
+  - Those who died in the third class appear to have more siblings and spouses on the boat with them. Was it possible they were trying to gather their family members to get off the boat and died in the process?
+  
+  - One [theory](https://digitalcommons.wou.edu/cgi/viewcontent.cgi?article=1026&context=his) notes that men in the first class gave up their lives because to do otherwise would be seen as cowardly
+  
+  
+  - Additionally, there appear to be some people with either one other family member on board (presumably a spouse) or only themselves. This could make for some more interesting research...
+
+### Does being a Single Woman Decrease or Increase Likelihood of Survival? 
+```{r, results='hide'}
+
+## Finally, create a model that predicts whether someone lived or died by the factors in the data plus an added dummy variable
+data.frame$miss.dummy <- ifelse(data.frame$Title == "Miss.", 1, 0)
+
+head(data.frame, 20)
+
+## Remove some unecessary variables for the analysis
+data.frame2 <- data.frame %>%
+  select(-c(Cabin, First, Last, Middle, Title))
+
+## Create factor variables
+for (i in c("Pclass","Sex","Embarked")){
+  data.frame2[,i]=as.factor(data.frame2[,i])
+} 
+
+## Create dummy variables for categorical variables
+data.frame2 <- dummy.data.frame(data.frame2, names=c("Pclass","Sex","Embarked"), sep="_")
+
+## Splitting training and test data
+train <- data.frame2[1:667,]
+test <- data.frame2[668:889,]
+
+## Model Creation
+model <- glm(Survived ~.,family=binomial(link='logit'),data=train)
+
+
+
+```
+
+```{r, warning = FALSE, message = FALSE}
+
+## Model Summary
+summary(model)
+```
+
+***
+- To predict who was more likely to survive the Titanic, this model utilzes the variables in the dataset, as well as a variable which notes whether being a single woman had any impact
+
+- This model suggests a *significant, positive relationship* between being single and making it off the boat alive
+
+- This does line up with the visualizations which note how women were more likely to survive
+
+### Another Look at the Model
+```{r, warning = FALSE, message = FALSE}
+ggplot(data.frame2, aes(x= miss.dummy, y = Survived)) +
+  geom_point(alpha = .5) +
+  labs(x = "Single Woman", title = "Probability of Survival if Passenger is a Single Woman") +
+  stat_smooth(method = "glm", se=FALSE, method.args = list(family= binomial), color = '#c88484' ) + 
+  theme_minimal()
+```
+
+***
+- Plotting the relationship between being a single woman and the likelihood of survival, the probability does move towards survival with this identification
+
+
+### Summary
+
+***
+- This analysis has revealed several interesting aspects of the Titanic disaster:
+
+  - More women survived than men (chivalry was not dead)
+  
+  - The lower class proportionally did not make it off the boat compared to the first and second class
+  
+  - First and second class men were more likely to die, perhaps due to a societal view that they were supposed to sacrifice their lives if necessary
+  
+  - Those with more family members may have died more often, perhaps trying to gather their loved ones and dying in the process
+  
+  - Single women were likely to survive
+
